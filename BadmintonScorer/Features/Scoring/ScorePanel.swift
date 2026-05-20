@@ -1,8 +1,8 @@
 import SwiftUI
 
-// MARK: - ScorePanel (Shared 計分面板)
-/// 共用元件，iPhone 與 iPad 都使用。
-/// 展示：隊伍名稱、分數、局數、局贏點数、發球指示、局點/賽點 badge。
+// MARK: - ScorePanel
+/// 共用計分面板，iPhone 與 iPad 都使用。
+/// 展示：隊伍名稱、分數、局數、局贏點數、發球指示、局點/賽點 badge。
 struct ScorePanel: View {
     let state: DerivedMatchState
     let session: MatchSession
@@ -11,11 +11,8 @@ struct ScorePanel: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // 局數 + 局贏點數
             GameInfoRow(state: state, session: session)
                 .padding(.bottom, 8)
-
-            // 主計分區
             HStack(spacing: 0) {
                 TeamScoreButton(
                     teamName: session.teamA.shortName,
@@ -26,9 +23,7 @@ struct ScorePanel: View {
                     colorHex: session.teamA.colorHex,
                     onTap: onAwardPointA
                 )
-                Divider()
-                    .frame(width: 1)
-                    .background(Color.white.opacity(0.3))
+                Divider().frame(width: 1).background(Color.white.opacity(0.3))
                 TeamScoreButton(
                     teamName: session.teamB.shortName,
                     score: state.scoreB,
@@ -57,7 +52,6 @@ struct TeamScoreButton: View {
     var body: some View {
         Button(action: onTap) {
             VStack(spacing: 6) {
-                // 隊伍縮寫 + 發球指示
                 HStack(spacing: 4) {
                     Text(teamName)
                         .font(.system(.title3, design: .rounded).bold())
@@ -68,23 +62,18 @@ struct TeamScoreButton: View {
                             .foregroundStyle(.yellow)
                     }
                 }
-
-                // 分數
                 Text("\(score)")
                     .font(.system(size: 72, weight: .black, design: .rounded))
                     .foregroundStyle(.white)
                     .monospacedDigit()
                     .contentTransition(.numericText())
                     .animation(.spring(duration: 0.3), value: score)
-
-                // 局點 / 賽點 badge
                 if isMatchPoint {
                     BadgeView(text: "賽點", color: .orange)
                 } else if isGamePoint {
                     BadgeView(text: "局點", color: .yellow)
                 } else {
-                    BadgeView(text: "", color: .clear)
-                        .hidden()
+                    BadgeView(text: "", color: .clear).hidden()
                 }
             }
             .frame(maxWidth: .infinity, minHeight: 160)
@@ -100,12 +89,8 @@ private struct GameInfoRow: View {
     let state: DerivedMatchState
     let session: MatchSession
 
-    private var gamesWonText: String {
-        "第 \(state.currentGameIndex) 局 · \(session.teamA.shortName) \(state.gamesWonA) – \(state.gamesWonB) \(session.teamB.shortName)"
-    }
-
     var body: some View {
-        Text(gamesWonText)
+        Text("第 \(state.currentGameIndex) 局 · \(session.teamA.shortName) \(state.gamesWonA) – \(state.gamesWonB) \(session.teamB.shortName)")
             .font(.system(.subheadline, design: .rounded).weight(.semibold))
             .foregroundStyle(.white.opacity(0.85))
             .monospacedDigit()
@@ -125,18 +110,5 @@ struct BadgeView: View {
             .padding(.vertical, 3)
             .background(color)
             .clipShape(Capsule())
-    }
-}
-
-// MARK: - Color Hex Init
-extension Color {
-    init(hex: String) {
-        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var int: UInt64 = 0
-        Scanner(string: hex).scanHexInt64(&int)
-        let r = Double((int >> 16) & 0xFF) / 255
-        let g = Double((int >> 8)  & 0xFF) / 255
-        let b = Double(int & 0xFF)         / 255
-        self.init(red: r, green: g, blue: b)
     }
 }
