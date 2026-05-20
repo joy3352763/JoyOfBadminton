@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+
+    <!-- ============================================================
+         相機 / 麥克風權限 (Epic G — RecorderPipeline)
+         App Store 審核必填；說明文字將顯示於系統權限對話框。
+         ============================================================ -->
+    <key>NSCameraUsageDescription</key>
+    <string>JoyOfBadminton 需要存取相機，以錄製羽球比賽影片並即時燒錄比分資訊。</string>
+
+    <key>NSMicrophoneUsageDescription</key>
+    <string>JoyOfBadminton 需要存取麥克風，以在比賽錄影中收錄現場音效。</string>
+
+    <!-- ============================================================
+         Photo Library（存檔至相簿，Epic H 整合驗收使用）
+         若改為僅存至 Documents 資料夾可省略此項。
+         ============================================================ -->
+    <key>NSPhotoLibraryAddUsageDescription</key>
+    <string>JoyOfBadminton 需要存取相簿，以儲存比賽錄影影片。</string>
+
+    <!-- ============================================================
+         基本 App 設定
+         ============================================================ -->
+    <key>UIApplicationSupportsIndirectInputEvents</key>
+    <true/>
+
+    <key>UISupportedInterfaceOrientations~iphone</key>
+    <array>
+        <!-- iPhone 僅支援橫向（計分頁設計方向） -->
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+
+    <key>UISupportedInterfaceOrientations~ipad</key>
+    <array>
+        <!-- iPad 支援全方向 -->
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationPortraitUpsideDown</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+
+    <!-- ============================================================
+         Background Modes：錄影期間允許音訊在背景繼續執行
+         ============================================================ -->
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>audio</string>
+    </array>
+
+</dict>
+</plist>
