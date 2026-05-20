@@ -1,7 +1,16 @@
 import Foundation
 
-// MARK: - MatchEvent
+// MARK: - TeamSide
+typealias TeamSide = String  // "A" | "B"
 
+// MARK: - ServiceCourt
+/// 發球區：左側或右側。定義於 Domain 層，供 Overlay / Engine 共用。
+enum ServiceCourt: String, Codable, Equatable {
+    case left
+    case right
+}
+
+// MARK: - MatchEvent
 enum MatchEvent: Codable, Equatable {
     case matchCreated(id: UUID, sessionId: UUID, timestamp: Date)
     case playersAssigned(id: UUID, teamA: Team, teamB: Team, timestamp: Date)
@@ -15,8 +24,6 @@ enum MatchEvent: Codable, Equatable {
     case recordingResumed(id: UUID, timestamp: Date)
     case matchFinished(id: UUID, winner: TeamSide, timestamp: Date)
     case recordingStopped(id: UUID, timestamp: Date)
-
-    // MARK: Computed helpers
 
     var eventId: UUID {
         switch self {
@@ -54,8 +61,6 @@ enum MatchEvent: Codable, Equatable {
         }
     }
 
-    /// 可被 Undo 回退的有效事件。
-    /// undoPerformed / matchCreated / playersAssigned 本身不列入可撤銷。
     var isEffective: Bool {
         switch self {
         case .pointAwarded, .nextGameStarted, .gameClosed, .matchFinished,
@@ -69,7 +74,6 @@ enum MatchEvent: Codable, Equatable {
 }
 
 // MARK: - DerivedMatchState
-
 struct DerivedMatchState: Equatable {
 
     enum Phase: String, Codable, Equatable {
@@ -89,9 +93,9 @@ struct DerivedMatchState: Equatable {
     var servingTeam: TeamSide = "A"
     var servingPlayerId: UUID = UUID()
     var receivingPlayerId: UUID = UUID()
-    var serviceCourt: String = "right"   // "left" | "right"
-    var courtEndsA: String = "north"     // teamA 所在場端
-    var courtEndsB: String = "south"     // teamB 所在場端
+    var serviceCourt: ServiceCourt = .right   // 升級為 enum
+    var courtEndsA: String = "north"
+    var courtEndsB: String = "south"
     var isGamePointA: Bool = false
     var isGamePointB: Bool = false
     var isMatchPointA: Bool = false

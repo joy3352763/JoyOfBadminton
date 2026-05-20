@@ -4,14 +4,22 @@ import Combine
 // MARK: - MatchStore
 /// 管理當前比賽的 session、eventLog 與衍生狀態。
 /// 是唯一可呼叫 MatchEngine 並發出 MatchEvent 的入口。
+/// RecorderPipeline 由外部注入，MatchStore 僅轉發控制指令。
 @MainActor
 final class MatchStore: ObservableObject {
-    @Published private(set) var session: MatchSession?
+    @Published private(set) var session:  MatchSession?
     @Published private(set) var eventLog: [MatchEvent] = []
-    @Published private(set) var state: DerivedMatchState = DerivedMatchState()
+    @Published private(set) var state:    DerivedMatchState = DerivedMatchState()
+
+    // MARK: Recording pipeline (injected)
+    var pipeline: RecorderPipeline?
+
+    // MARK: Derived recording state
+    var recordingState: RecordingState {
+        pipeline?.recordingState ?? .idle
+    }
 
     // MARK: - Setup
-
     func startMatch(session: MatchSession) {
         self.session  = session
         self.eventLog = []
@@ -19,40 +27,46 @@ final class MatchStore: ObservableObject {
         appendEvent(.matchCreated(id: UUID(), sessionId: session.id, timestamp: Date()))
         appendEvent(.initialServerSelected(
             id: UUID(),
-            servingTeam: session.initialServerTeam,
-            servingPlayerId: session.initialServerPlayerId,
+            servingTeam:       session.initialServerTeam,
+            servingPlayerId:   session.initialServerPlayerId,
             receivingPlayerId: session.initialReceiverPlayerId,
             timestamp: Date()
         ))
     }
 
-    /// 比賽結束後重置狀態，回到 setup 流程。
     func reset() {
         session  = nil
         eventLog = []
         state    = DerivedMatchState()
+        pipeline = nil
     }
 
     // MARK: - Recording
-
     func startRecording() {
+        guard let pipeline else { return }
+        pipeline.startRecording()
         appendEvent(.recordingStarted(id: UUID(), timestamp: Date()))
     }
 
     func pauseRecording() {
+        guard let pipeline else { return }
+        pipeline.pauseRecording()
         appendEvent(.recordingPaused(id: UUID(), timestamp: Date()))
     }
 
     func resumeRecording() {
+        guard let pipeline else { return }
+        pipeline.resumeRecording()
         appendEvent(.recordingResumed(id: UUID(), timestamp: Date()))
     }
 
     func stopRecording() {
+        guard let pipeline else { return }
+        pipeline.stopRecording()
         appendEvent(.recordingStopped(id: UUID(), timestamp: Date()))
     }
 
     // MARK: - Game Actions
-
     func awardPoint(to team: TeamSide) {
         guard state.phase == .inGame, session != nil else { return }
         appendEvent(.pointAwarded(id: UUID(), team: team, timestamp: Date()))
@@ -64,13 +78,12 @@ final class MatchStore: ObservableObject {
         appendEvent(.nextGameStarted(
             id: UUID(),
             newGameIndex: nextIndex,
-            servingTeam: servingTeam,
+            servingTeam:  servingTeam,
             timestamp: Date()
         ))
     }
 
     // MARK: - Undo
-
     var canUndo: Bool {
         eventLog.contains { $0.isEffective }
     }
@@ -84,7 +97,6 @@ final class MatchStore: ObservableObject {
     }
 
     // MARK: - Private
-
     private func appendEvent(_ event: MatchEvent) {
         eventLog.append(event)
         if let session {
