@@ -1,9 +1,9 @@
 import SwiftUI
 
 // MARK: - iPadScoreView (Epic E2)
-/// iPad 水平分割介面：左欄相機預覽，右欄計分面板 + 控制列。
 struct iPadScoreView: View {
     @EnvironmentObject private var matchStore: MatchStore
+    let onMatchFinished: () -> Void
 
     @State private var recordingState: RecordingState = .idle
     @State private var showGameBreakSheet = false
@@ -13,7 +13,6 @@ struct iPadScoreView: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            // 左欄：相機預覽（占 60%）
             ZStack(alignment: .topTrailing) {
                 CameraPreviewPlaceholder()
                 RecordingStateBanner(recordingState: recordingState)
@@ -23,7 +22,6 @@ struct iPadScoreView: View {
 
             Divider()
 
-            // 右欄：計分 + 控制（對敗 40%）
             VStack(spacing: 0) {
                 if let session = matchStore.session {
                     ScorePanel(
@@ -34,16 +32,11 @@ struct iPadScoreView: View {
                     )
                     .padding(16)
                 }
-
                 Spacer()
-
                 ControlBar(
                     canUndo: matchStore.canUndo,
                     recordingState: recordingState,
-                    onUndo: {
-                        haptic.impactOccurred()
-                        matchStore.undo()
-                    },
+                    onUndo: { haptic.impactOccurred(); matchStore.undo() },
                     onPauseResume: { togglePauseResume() },
                     onStop: { stopRecording() }
                 )
@@ -53,9 +46,7 @@ struct iPadScoreView: View {
         }
         .ignoresSafeArea()
         .onAppear { startRecording() }
-        .onChange(of: matchStore.state.phase) { _, phase in
-            handlePhaseChange(phase)
-        }
+        .onChange(of: matchStore.state.phase) { _, phase in handlePhaseChange(phase) }
         .sheet(isPresented: $showGameBreakSheet) {
             if let session = matchStore.session {
                 GameBreakSheet(session: session, state: matchStore.state) { servingTeam in
@@ -69,14 +60,13 @@ struct iPadScoreView: View {
                 MatchFinishedView(
                     state: matchStore.state,
                     session: session,
-                    onNewMatch: { showFinishedView = false },
-                    onExit: { showFinishedView = false }
+                    onNewMatch: { showFinishedView = false; onMatchFinished() },
+                    onExit:     { showFinishedView = false; onMatchFinished() }
                 )
             }
         }
     }
 
-    // MARK: Actions (same as iPhone)
     private func startRecording() {
         guard recordingState == .idle else { return }
         matchStore.startRecording()
@@ -91,11 +81,9 @@ struct iPadScoreView: View {
 
     private func togglePauseResume() {
         if recordingState == .recording {
-            matchStore.pauseRecording()
-            withAnimation { recordingState = .paused }
+            matchStore.pauseRecording(); withAnimation { recordingState = .paused }
         } else if recordingState == .paused {
-            matchStore.resumeRecording()
-            withAnimation { recordingState = .recording }
+            matchStore.resumeRecording(); withAnimation { recordingState = .recording }
         }
     }
 
@@ -110,7 +98,7 @@ struct iPadScoreView: View {
     private func handlePhaseChange(_ phase: DerivedMatchState.Phase) {
         switch phase {
         case .gameBreak: showGameBreakSheet = true
-        case .finished:  showFinishedView = true
+        case .finished:  showFinishedView  = true
         default: break
         }
     }

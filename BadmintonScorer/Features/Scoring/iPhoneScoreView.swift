@@ -1,9 +1,9 @@
 import SwiftUI
 
 // MARK: - iPhoneScoreView (Epic E1)
-/// iPhone 全螢幕計分頁：相機預覽為背景，疊加計分面板 + 底部控制列。
 struct iPhoneScoreView: View {
     @EnvironmentObject private var matchStore: MatchStore
+    let onMatchFinished: () -> Void
 
     @State private var recordingState: RecordingState = .idle
     @State private var showGameBreakSheet = false
@@ -13,16 +13,10 @@ struct iPhoneScoreView: View {
 
     var body: some View {
         ZStack {
-            // 背景：相機預覽（Epic G 整合前占位用黑色）
             Color.black.ignoresSafeArea()
+            CameraPreviewPlaceholder().ignoresSafeArea()
 
-            // CameraPreviewPlaceholder — Epic G 完成後替换為 AVCaptureVideoPreviewLayer
-            CameraPreviewPlaceholder()
-                .ignoresSafeArea()
-
-            // 主內容
             VStack(spacing: 0) {
-                // 頂部記錄狀態指示
                 HStack {
                     Spacer()
                     RecordingStateBanner(recordingState: recordingState)
@@ -32,7 +26,6 @@ struct iPhoneScoreView: View {
 
                 Spacer()
 
-                // 計分面板
                 if let session = matchStore.session {
                     ScorePanel(
                         state: matchStore.state,
@@ -44,14 +37,10 @@ struct iPhoneScoreView: View {
                     .padding(.bottom, 8)
                 }
 
-                // 底部控制列
                 ControlBar(
                     canUndo: matchStore.canUndo,
                     recordingState: recordingState,
-                    onUndo: {
-                        haptic.impactOccurred()
-                        matchStore.undo()
-                    },
+                    onUndo: { haptic.impactOccurred(); matchStore.undo() },
                     onPauseResume: { togglePauseResume() },
                     onStop: { stopRecording() }
                 )
@@ -60,9 +49,7 @@ struct iPhoneScoreView: View {
         .navigationBarHidden(true)
         .statusBarHidden(true)
         .onAppear { startRecording() }
-        .onChange(of: matchStore.state.phase) { _, phase in
-            handlePhaseChange(phase)
-        }
+        .onChange(of: matchStore.state.phase) { _, phase in handlePhaseChange(phase) }
         .sheet(isPresented: $showGameBreakSheet) {
             if let session = matchStore.session {
                 GameBreakSheet(session: session, state: matchStore.state) { servingTeam in
@@ -76,14 +63,13 @@ struct iPhoneScoreView: View {
                 MatchFinishedView(
                     state: matchStore.state,
                     session: session,
-                    onNewMatch: { showFinishedView = false },
-                    onExit: { showFinishedView = false }
+                    onNewMatch: { showFinishedView = false; onMatchFinished() },
+                    onExit:     { showFinishedView = false; onMatchFinished() }
                 )
             }
         }
     }
 
-    // MARK: Actions
     private func startRecording() {
         guard recordingState == .idle else { return }
         matchStore.startRecording()
@@ -109,7 +95,6 @@ struct iPhoneScoreView: View {
     private func stopRecording() {
         matchStore.stopRecording()
         withAnimation { recordingState = .finalizing }
-        // 模擬儲存完成（Epic G 整合後替換為實際 callback）
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
             withAnimation { recordingState = .saved }
         }
@@ -117,18 +102,13 @@ struct iPhoneScoreView: View {
 
     private func handlePhaseChange(_ phase: DerivedMatchState.Phase) {
         switch phase {
-        case .gameBreak:
-            showGameBreakSheet = true
-        case .finished:
-            showFinishedView = true
-        default:
-            break
+        case .gameBreak: showGameBreakSheet = true
+        case .finished:  showFinishedView  = true
+        default: break
         }
     }
 }
 
-// MARK: - CameraPreviewPlaceholder
-/// Epic G 完成前的占位元件。
 struct CameraPreviewPlaceholder: View {
     var body: some View {
         ZStack {
