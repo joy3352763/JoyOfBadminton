@@ -1,10 +1,37 @@
 import Foundation
-import Combine
+import Observation
 
-// TODO: Epic F1 — OverlayViewModel
-// 依 BDD 文件 §8 任務拆解實作，進入條件見 §9 銜接檢查點。
-// 職責：將 DerivedMatchState 轉換為 CGImage 燒錄用的比分疊加圖層。
+// MARK: - OverlayViewModel  (Epic F1)
+/// 監聽 MatchStore 的 DerivedMatchState，
+/// 每個 UI cycle 產生一份 OverlaySnapshot 供 PreviewOverlay 與 BurnInRenderer 使用。
+@Observable
+final class OverlayViewModel {
 
-final class OverlayViewModel: ObservableObject {
-    // Epic F1 待實作
+    // MARK: Published
+    private(set) var snapshot: OverlaySnapshot?
+
+    // MARK: Dependencies
+    private let matchStore: MatchStore
+
+    // MARK: Init
+    init(matchStore: MatchStore) {
+        self.matchStore = matchStore
+        updateSnapshot()
+    }
+
+    // MARK: Public
+    /// 由 View 在 `.onChange(of: matchStore.state)` 或 task 中呼叫，
+    /// 也可直接由 MatchStore 在每次 awardPoint / undo 後通知。
+    func refresh() {
+        updateSnapshot()
+    }
+
+    // MARK: Private
+    private func updateSnapshot() {
+        guard let session = matchStore.session else {
+            snapshot = nil
+            return
+        }
+        snapshot = OverlaySnapshot.from(matchStore.state, session: session)
+    }
 }
