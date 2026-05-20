@@ -18,168 +18,138 @@ iOS 羽球雙打錄影計分 App MVP — 純地端、事件溯源架構。
 BadmintonScorer/
 ├── App/                    # 入口、根路由
 │   ├── BadmintonScorerApp.swift
-│   ├── AppRouter.swift     # @Observable 導航狀態機
-│   └── ContentView.swift   # setup ↔ inMatch 切換
+│   ├── AppRouter.swift
+│   └── ContentView.swift
 ├── Domain/
 │   ├── Models/             # Player, Team, MatchSession, MatchEvent, DerivedMatchState
-│   ├── Engine/             # MatchEngine（純函數規則引擎）
-│   └── Store/              # PlayerStore, MatchStore（ObservableObject）
+│   ├── Engine/             # MatchEngine
+│   └── Store/              # PlayerStore, MatchStore
 ├── Features/
-│   ├── PlayerManagement/   # Epic D1 — 球員 CRUD
-│   ├── MatchSetup/         # Epic D2 — 三步驟精靈
-│   ├── Scoring/            # Epic E — iPhone / iPad 計分頁
-│   ├── Overlay/            # Epic F（Overlay ViewModel + PreviewOverlay）
-│   └── Recording/          # Epic G（AVFoundation 錄影）
+│   ├── PlayerManagement/   # Epic D1
+│   ├── MatchSetup/         # Epic D2
+│   ├── Scoring/            # Epic E
+│   ├── Overlay/            # Epic F ✔
+│   │   ├── OverlaySnapshot.swift
+│   │   ├── OverlayViewModel.swift
+│   │   ├── PreviewOverlayView.swift
+│   │   └── BurnInRenderer.swift
+│   └── Recording/          # Epic G（待實作）
 └── Resources/
-    └── ColorExtensions.swift  # Color(hex:) + Color.toHex() 全域共用
+    └── ColorExtensions.swift
 ```
 
 ## Epic 進度
 
 | Epic | 內容 | 狀態 |
 |------|------|------|
-| A | Domain Models（Player / Team / MatchSession） | ✅ 完成 |
+| A | Domain Models | ✅ 完成 |
 | B | MatchEngine 規則引擎 | ✅ 完成 |
 | C | 單元測試（16 項） | ✅ 完成 |
 | D | SwiftUI 賽前 UI | ✅ 完成 |
 | E | 計分頁 UI（iPhone / iPad） | ✅ 完成 |
-| F | Overlay ViewModel + 預覽層 | 🔲 待實作 |
+| F | Overlay ViewModel + 預覽層 + BurnIn | ✅ 完成 |
 | G | RecorderPipeline | 🔲 待實作 |
 | H | 整合驗收 | 🔲 待實作 |
 
 ---
 
-## Epic D 完成度明細
+## Epic F 完成度明細
 
-### D1 — PlayerManagementView ✅
+### F1 — OverlaySnapshot ✅
 
-| 功能 | 狀態 | 說明 |
-|------|------|------|
-| 球員列表 | ✅ | `List` + `insetGrouped`，shortName 圓形徽章 + displayName |
-| 新增球員 | ✅ | 右上角按鈕開啟 Sheet → `PlayerFormView(mode: .add)` |
-| 編輯球員 | ✅ | 左滑 → 鉛筆按鈕 → `PlayerFormView(mode: .edit(player))` |
-| 刪除球員 | ✅ | 左滑紅色垃圾桶 或 Edit 模式批次刪除 |
-| shortName 截斷 | ✅ | 超過 4 字自動截斷、強制大寫輸入 |
-| 表單驗證 | ✅ | shortName 空白時「儲存」disabled；錯誤訊息 inline 顯示 |
-| Empty State | ✅ | 無球員時顯示圖示 + 說明文字 + 一鍵新增按鈕 |
-| PlayerStore 整合 | ✅ | `@EnvironmentObject` 讀寫，變更自動持久化至 UserDefaults |
+共用値型，對 PreviewOverlay（SwiftUI）和 BurnInRenderer（Core Graphics）提供同一資料源。
 
-### D2 — MatchSetupView ✅
+| 屬性 | 内容 |
+|------|---------|
+| `teamA` / `teamB` | `TeamInfo`（shortName、colorHex、score、gamesWon）|
+| `currentGameIndex` | 1-based 局數 |
+| `servingTeam` / `serviceCourt` | 發球方 + 發球區（left/right）|
+| `isGamePointA/B` / `isMatchPointA/B` | 局點 / 賽點旗標 |
+| `phase` | `DerivedMatchState.Phase` |
+| `from(_:session:)` | 工廠方法，由 DerivedMatchState + MatchSession 建立 |
 
-| 功能 | 狀態 | 說明 |
-|------|------|------|
-| Step 0 — 選 A 隊 | ✅ | 隊名、縮寫（限 4 字）、ColorPicker、球員 1/2 下拉選擇 |
-| Step 1 — 選 B 隊 | ✅ | 同上；PlayerPickerRow 自動排除對方已選球員 |
-| Step 2 — 設定發球 | ✅ | Segmented 選發球隊、可點選行選發球員 / 接發員 |
-| 跨隊防重複選人 | ✅ | `excluding` 同時排除己方另一人與對方已選球員 |
-| 步驟驗證 | ✅ | 每步「下一步」前驗證，錯誤訊息 inline 顯示 |
-| 上一步導航 | ✅ | Step 1/2 左上角顯示 `chevron.left` 返回 |
-| Color → Hex 轉換 | ✅ | `Color.toHex()` extension（`ColorExtensions.swift`） |
-| 建立 MatchSession | ✅ | 呼叫 `onSessionCreated(session)` callback 後 dismiss |
+### F2 — OverlayViewModel ✅
+
+```
+MatchStore.state 改變
+       ↓ refresh()
+  OverlaySnapshot
+       ↓
+  PreviewOverlayView / BurnInRenderer
+```
+
+- `@Observable` — 支援 `@State` + `.onChange` 訂閱
+- `refresh()` 公開方法，由 View 在 `.onChange(of: matchStore.state)` 呼叫
+- `session == nil` 時 snapshot 為 `nil`，PreviewOverlay 自動隐藏
+
+### F3 — PreviewOverlayView ✅
+
+- 純 **SwiftUI Canvas** 繪製，無 UIKit 依賴
+- `.allowsHitTesting(false)` — 不攔截觸控
+- `.accessibilityHidden(true)` — 純視覺裝飾
+- `opacity` 參數可外控（暫停錄影時可降至 0.5）
+- `#Preview` + `OverlaySnapshot.mock` 即時預覽
+
+| 元件 | 說明 |
+|------|---------|
+| Team block | 隊色底層 + 分數大字 + shortName + gamesWon 圓點 |
+| 發球點 | 黃色圓點，發球方顯示 |
+| GP / MP badge | 黃色（局點）/ 紅色（賽點），对車對方角 |
+| 局數 divider | 中間黑色區塊顯示「 G2 」|
+
+### F4 — BurnInRenderer ✅
+
+- 純 **Core Graphics + CoreText**，無 UIKit / SwiftUI
+- `render(snapshot:) -> CGImage?` — 可在任意 queue 呼叫
+- 預設畫布 **1920×1080**，`scale` 參數支援 HiDPI
+- 所有尺寸相對畫布比例，自適應任意達到分辨率
+- 回傳 RGBA premultiplied CGImage，直接 composite 至 `CVPixelBuffer`
 
 ---
 
-## Epic E 完成度明細
-
-### E1 — iPhoneScoreView ✅
-
-| 功能 | 狀態 | 說明 |
-|------|------|------|
-| 全螢幕相機背景 | ✅ | `CameraPreviewPlaceholder`（Epic G 完成後替換） |
-| ScorePanel 疊加 | ✅ | 分數動畫 `.numericText()`、發球圓點、局/賽點 badge |
-| 底部控制列 | ✅ | Undo / Pause / Stop，最小 44pt 觸摸目標 |
-| Haptic Feedback | ✅ | 得分 / Undo 時觸發 `UIImpactFeedbackGenerator` |
-| GameBreakSheet | ✅ | 局間提示 + 選下一局發球方 |
-| MatchFinishedView | ✅ | 勝者畫面，`onMatchFinished` callback 回到根路由 |
-
-### E2 — iPadScoreView ✅
-
-| 功能 | 狀態 | 說明 |
-|------|------|------|
-| 水平分割佈局 | ✅ | 左 60% 相機 / 右 40% 計分（寬度 360pt 固定） |
-| 共用元件 | ✅ | ScorePanel + ControlBar + RecordingStateBanner |
-| 與 iPhone 邏輯一致 | ✅ | 相同 MatchStore binding + phase 監聽 |
-
-### E3 — MatchStore 整合 ✅
-
-| 方法 | 狀態 |
-|------|------|
-| `startRecording()` | ✅ |
-| `pauseRecording()` | ✅ |
-| `resumeRecording()` | ✅ |
-| `stopRecording()` | ✅ |
-| `startNextGame(servingTeam:)` | ✅ |
-| `reset()` | ✅ |
-
-### E4 — RecordingState ✅
-
-```
-idle → recording ⇄ paused → finalizing → saved
-```
-
-`RecordingStateBanner` 含閃爍 REC 指示燈（`.recordingState == .recording`）。
-
----
-
-## App 根路由整合 ✅
+## App 根路由整合
 
 ```
 ContentView
 ├── .setup  → MainTabView
-│              ├── Tab 0: PlayerManagementView
-│              └── Tab 1: MatchSetupView（人數 < 4 顯示防呆提示）
-│                          ↓ onSessionCreated
-│                   matchStore.startMatch(session)
-│                   router.goToMatch()
+│              ├── PlayerManagementView
+│              └── MatchSetupView → onSessionCreated → router.goToMatch()
 └── .inMatch → AdaptiveScoreView
-                ├── compact → iPhoneScoreView
-                └── regular → iPadScoreView
-                              ↓ onMatchFinished
-                   matchStore.reset()
-                   router.goToSetup()
+                ├── compact → iPhoneScoreView → PreviewOverlayView
+                └── regular → iPadScoreView → PreviewOverlayView
+                              ↓ onMatchFinished → router.goToSetup()
 ```
 
 ---
 
 ## Build 已知修復項目
 
-| # | 問題 | 修復 commit |
-|---|------|------------|
+| # | 問題 | 修復 |
+|---|------|---------|
 | 1 | `Color(hex:)` 分散定義 | 統一至 `ColorExtensions.swift` |
-| 2 | `AppRouter @Observable` 缺 `import Observation` | `9cd30aa` |
-| 3 | `MatchSetupView.onSessionCreated` 為 `var` | 改為 `let` — `1126595` |
-| 4 | `ContentView` 引用 `MatchSetupView` 語法不一致 | 修正為 `let` 初始化語法 |
-| 5 | `AppRoute.finished` 多餘 case | 移除，簡化為 `.setup` / `.inMatch` |
+| 2 | `AppRouter` 缺 `import Observation` | `9cd30aa` |
+| 3 | `MatchSetupView.onSessionCreated` 為 `var` | 改為 `let` `1126595` |
+| 4 | `ContentView` 語法不一致 | 修正為 `let` 初始化 |
+| 5 | `AppRoute.finished` 多餘 case | 移除 |
 
 ---
 
 ## 環境需求
 
-- Xcode 16.3+（`@Observable` 需要 iOS 17+）
-- iOS 17.0+
-- Swift 5.9+
+- Xcode 16.3+ / iOS 17.0+ / Swift 5.9+
 
 ## CI 設定
 
-本專案使用 **GitHub Actions** 自動在每次 push / PR 時執行 `xcodebuild build` 與 `xcodebuild test`。
+使用 **GitHub Actions** 自動在每次 push / PR 執行 `xcodebuild build` + `test`。
 
-### ⚠️ 需要在 Xcode 中確認並更新 `.github/workflows/ci.yml`
+### ⚠️ 需要在 Xcode 中確認（`.github/workflows/ci.yml`）
 
 | 項目 | 目前設定 | 如何確認 |
-|------|---------|---------| 
-| `PROJECT_PATH` | `BadmintonScorer/BadmintonScorer.xcodeproj` | 對照 Xcode Navigator 中 `.xcodeproj` 檔名 |
-| `SCHEME` | `BadmintonScorer` | Xcode 工具列左上 scheme 下拉，或執行 `xcodebuild -list` |
+|------|---------|---------|
+| `PROJECT_PATH` | `BadmintonScorer/BadmintonScorer.xcodeproj` | Xcode Navigator 中 `.xcodeproj` 檔名 |
+| `SCHEME` | `BadmintonScorer` | scheme 下拉 或 `xcodebuild -list` |
 | Xcode 版本 | `/Applications/Xcode_16.3.app` | `ls /Applications/ \| grep Xcode` |
-
-### 手動檢查可用 scheme
 
 ```bash
 xcodebuild -list -project BadmintonScorer/BadmintonScorer.xcodeproj
 ```
-
-## 建立 Xcode 專案
-
-1. Xcode → **File → New → Project → iOS App**
-2. Product Name: `BadmintonScorer`，Interface: SwiftUI，Include Tests
-3. 將此 repo 的 `BadmintonScorer/` 資料夾內容拖入對應 Group
-4. `⌘B` Build、`⌘U` 執行測試
