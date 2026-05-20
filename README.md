@@ -17,6 +17,9 @@ iOS 羽球雙打錄影計分 App MVP — 純地端、事件溯源架構。
 ```
 BadmintonScorer/
 ├── App/                    # 入口、根路由
+│   ├── BadmintonScorerApp.swift
+│   ├── AppRouter.swift     # @Observable 導航狀態機
+│   └── ContentView.swift   # setup ↔ inMatch 切換
 ├── Domain/
 │   ├── Models/             # Player, Team, MatchSession, MatchEvent, DerivedMatchState
 │   ├── Engine/             # MatchEngine（純函數規則引擎）
@@ -24,10 +27,11 @@ BadmintonScorer/
 ├── Features/
 │   ├── PlayerManagement/   # Epic D1 — 球員 CRUD
 │   ├── MatchSetup/         # Epic D2 — 三步驟精靈
-│   ├── Scoring/            # Epic E（iPhone / iPad 計分頁）
-│   ├── Overlay/            # Epic F（預覽疊加層）
+│   ├── Scoring/            # Epic E — iPhone / iPad 計分頁
+│   ├── Overlay/            # Epic F（Overlay ViewModel + PreviewOverlay）
 │   └── Recording/          # Epic G（AVFoundation 錄影）
 └── Resources/
+    └── ColorExtensions.swift  # Color(hex:) + Color.toHex() 全域共用
 ```
 
 ## Epic 進度
@@ -38,7 +42,7 @@ BadmintonScorer/
 | B | MatchEngine 規則引擎 | ✅ 完成 |
 | C | 單元測試（16 項） | ✅ 完成 |
 | D | SwiftUI 賽前 UI | ✅ 完成 |
-| E | 計分頁 UI（iPhone / iPad） | 🔲 待實作 |
+| E | 計分頁 UI（iPhone / iPad） | ✅ 完成 |
 | F | Overlay ViewModel + 預覽層 | 🔲 待實作 |
 | G | RecorderPipeline | 🔲 待實作 |
 | H | 整合驗收 | 🔲 待實作 |
@@ -66,26 +70,93 @@ BadmintonScorer/
 |------|------|------|
 | Step 0 — 選 A 隊 | ✅ | 隊名、縮寫（限 4 字）、ColorPicker、球員 1/2 下拉選擇 |
 | Step 1 — 選 B 隊 | ✅ | 同上；PlayerPickerRow 自動排除對方已選球員 |
-| Step 2 — 設定發球 | ✅ | Segmented 選發球隊、可點選行選發球員 / 接發球員 |
+| Step 2 — 設定發球 | ✅ | Segmented 選發球隊、可點選行選發球員 / 接發員 |
 | 跨隊防重複選人 | ✅ | `excluding` 同時排除己方另一人與對方已選球員 |
 | 步驟驗證 | ✅ | 每步「下一步」前驗證，錯誤訊息 inline 顯示 |
 | 上一步導航 | ✅ | Step 1/2 左上角顯示 `chevron.left` 返回 |
-| Color → Hex 轉換 | ✅ | `Color.toHex()` extension，傳入 `Team(colorHex:)` |
+| Color → Hex 轉換 | ✅ | `Color.toHex()` extension（`ColorExtensions.swift`） |
 | 建立 MatchSession | ✅ | 呼叫 `onSessionCreated(session)` callback 後 dismiss |
 
-### ⚠️ 已知待補項目（Epic E 完成後一併補齊）
+---
 
-| 項目 | 說明 |
+## Epic E 完成度明細
+
+### E1 — iPhoneScoreView ✅
+
+| 功能 | 狀態 | 說明 |
+|------|------|------|
+| 全螢幕相機背景 | ✅ | `CameraPreviewPlaceholder`（Epic G 完成後替換） |
+| ScorePanel 疊加 | ✅ | 分數動畫 `.numericText()`、發球圓點、局/賽點 badge |
+| 底部控制列 | ✅ | Undo / Pause / Stop，最小 44pt 觸摸目標 |
+| Haptic Feedback | ✅ | 得分 / Undo 時觸發 `UIImpactFeedbackGenerator` |
+| GameBreakSheet | ✅ | 局間提示 + 選下一局發球方 |
+| MatchFinishedView | ✅ | 勝者畫面，`onMatchFinished` callback 回到根路由 |
+
+### E2 — iPadScoreView ✅
+
+| 功能 | 狀態 | 說明 |
+|------|------|------|
+| 水平分割佈局 | ✅ | 左 60% 相機 / 右 40% 計分（寬度 360pt 固定） |
+| 共用元件 | ✅ | ScorePanel + ControlBar + RecordingStateBanner |
+| 與 iPhone 邏輯一致 | ✅ | 相同 MatchStore binding + phase 監聽 |
+
+### E3 — MatchStore 整合 ✅
+
+| 方法 | 狀態 |
 |------|------|
-| App 根路由整合 | 尚未建立 `ContentView` / `AppView` 將 D1、D2 串接至 E |
-| `PlayerStore` 人數不足提示 | MatchSetupView 入口可加防呄：< 4 人時顯示提示带導入 D1 |
+| `startRecording()` | ✅ |
+| `pauseRecording()` | ✅ |
+| `resumeRecording()` | ✅ |
+| `stopRecording()` | ✅ |
+| `startNextGame(servingTeam:)` | ✅ |
+| `reset()` | ✅ |
+
+### E4 — RecordingState ✅
+
+```
+idle → recording ⇄ paused → finalizing → saved
+```
+
+`RecordingStateBanner` 含閃爍 REC 指示燈（`.recordingState == .recording`）。
+
+---
+
+## App 根路由整合 ✅
+
+```
+ContentView
+├── .setup  → MainTabView
+│              ├── Tab 0: PlayerManagementView
+│              └── Tab 1: MatchSetupView（人數 < 4 顯示防呆提示）
+│                          ↓ onSessionCreated
+│                   matchStore.startMatch(session)
+│                   router.goToMatch()
+└── .inMatch → AdaptiveScoreView
+                ├── compact → iPhoneScoreView
+                └── regular → iPadScoreView
+                              ↓ onMatchFinished
+                   matchStore.reset()
+                   router.goToSetup()
+```
+
+---
+
+## Build 已知修復項目
+
+| # | 問題 | 修復 commit |
+|---|------|------------|
+| 1 | `Color(hex:)` 分散定義 | 統一至 `ColorExtensions.swift` |
+| 2 | `AppRouter @Observable` 缺 `import Observation` | `9cd30aa` |
+| 3 | `MatchSetupView.onSessionCreated` 為 `var` | 改為 `let` — `1126595` |
+| 4 | `ContentView` 引用 `MatchSetupView` 語法不一致 | 修正為 `let` 初始化語法 |
+| 5 | `AppRoute.finished` 多餘 case | 移除，簡化為 `.setup` / `.inMatch` |
 
 ---
 
 ## 環境需求
 
-- Xcode 16.3+
-- iOS 16.0+
+- Xcode 16.3+（`@Observable` 需要 iOS 17+）
+- iOS 17.0+
 - Swift 5.9+
 
 ## CI 設定
@@ -95,12 +166,10 @@ BadmintonScorer/
 ### ⚠️ 需要在 Xcode 中確認並更新 `.github/workflows/ci.yml`
 
 | 項目 | 目前設定 | 如何確認 |
-|------|---------|---------|
+|------|---------|---------| 
 | `PROJECT_PATH` | `BadmintonScorer/BadmintonScorer.xcodeproj` | 對照 Xcode Navigator 中 `.xcodeproj` 檔名 |
 | `SCHEME` | `BadmintonScorer` | Xcode 工具列左上 scheme 下拉，或執行 `xcodebuild -list` |
 | Xcode 版本 | `/Applications/Xcode_16.3.app` | `ls /Applications/ \| grep Xcode` |
-
-確認後只需移除 workflow 中的 `# ⚠️ 待確認` 註記即可。
 
 ### 手動檢查可用 scheme
 
