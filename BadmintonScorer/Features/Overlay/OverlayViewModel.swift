@@ -1,37 +1,34 @@
 import Foundation
-import Observation
+import Combine
 
-// MARK: - OverlayViewModel  (Epic F1)
-/// 監聽 MatchStore 的 DerivedMatchState，
-/// 每個 UI cycle 產生一份 OverlaySnapshot 供 PreviewOverlay 與 BurnInRenderer 使用。
-@Observable
-final class OverlayViewModel {
+// MARK: - OverlayViewModel  (Epic F1 + H2 接線)
+/// 訂閱 MatchStore.state，將 DerivedMatchState 轉換為 OverlaySnapshot。
+/// `onSnapshotUpdated` 由 AppComposer 注入，讓 RecorderPipeline 接收每幀快照。
+@MainActor
+final class OverlayViewModel: ObservableObject {
 
-    // MARK: Published
-    private(set) var snapshot: OverlaySnapshot?
+    @Published private(set) var snapshot: OverlaySnapshot?
 
-    // MARK: Dependencies
-    private let matchStore: MatchStore
+    // AppComposer 注入：每次 snapshot 更新時呼叫
+    var onSnapshotUpdated: ((OverlaySnapshot) -> Void)?
 
-    // MARK: Init
-    init(matchStore: MatchStore) {
-        self.matchStore = matchStore
-        updateSnapshot()
+    private let store: MatchStore
+    private var cancellables = Set<AnyCancellable>()
+
+    init(store: MatchStore) {
+        self.store = store
+        store.$state
+            .receive(on: RunLoop.main)
+            .sink { [weak self] state in
+                self?.handleStateChange(state)
+            }
+            .store(in: &cancellables)
     }
 
-    // MARK: Public
-    /// 由 View 在 `.onChange(of: matchStore.state)` 或 task 中呼叫，
-    /// 也可直接由 MatchStore 在每次 awardPoint / undo 後通知。
-    func refresh() {
-        updateSnapshot()
-    }
-
-    // MARK: Private
-    private func updateSnapshot() {
-        guard let session = matchStore.session else {
-            snapshot = nil
-            return
-        }
-        snapshot = OverlaySnapshot.from(matchStore.state, session: session)
+    private func handleStateChange(_ state: DerivedMatchState) {
+        guard let session = store.session else { return }
+        let newSnapshot = OverlaySnapshot.from(state, session: session)
+        snapshot = newSnapshot
+        onSnapshotUpdated?(newSnapshot)
     }
 }

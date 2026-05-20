@@ -2,14 +2,20 @@ import SwiftUI
 
 @main
 struct BadmintonScorerApp: App {
-    @StateObject private var playerStore = PlayerStore()
-    @StateObject private var matchStore  = MatchStore()
+
+    // AppComposer 建立並持有完整的物件圖
+    @StateObject private var composer = AppComposer()
 
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .environmentObject(playerStore)
-                .environmentObject(matchStore)
+                // Domain / Store
+                .environmentObject(composer.matchStore)
+                .environmentObject(composer.playerStore)
+                // Overlay
+                .environmentObject(composer.overlayViewModel)
+                // Pipeline（供 UI 觀察 recordingState）
+                .environmentObject(composer.pipeline)
         }
     }
 }
