@@ -7,7 +7,7 @@ struct MatchSetupView: View {
     @Environment(\.dismiss) private var dismiss
 
     /// 外部注入的 callback：setup 完成後呼叫，傳入已建立的 MatchSession。
-    var onSessionCreated: (MatchSession) -> Void
+    let onSessionCreated: (MatchSession) -> Void
 
     // MARK: Step 1 & 2 — 隊伍選擇
     @State private var teamAPlayer1: Player? = nil
@@ -27,29 +27,16 @@ struct MatchSetupView: View {
     @State private var servingPlayer: Player? = nil
     @State private var receivingPlayer: Player? = nil
 
-    @State private var step: Int = 0   // 0 = A隊, 1 = B隊, 2 = 發球
+    @State private var step: Int = 0
     @State private var validationError: String? = nil
 
     // MARK: Derived
     private var allPlayers: [Player] { playerStore.players }
-
-    private var teamAPlayers: [Player] {
-        [teamAPlayer1, teamAPlayer2].compactMap { $0 }
-    }
-    private var teamBPlayers: [Player] {
-        [teamBPlayer1, teamBPlayer2].compactMap { $0 }
-    }
-
-    private var servingTeamPlayers: [Player] {
-        servingTeamSide == "A" ? teamAPlayers : teamBPlayers
-    }
-    private var receivingTeamPlayers: [Player] {
-        servingTeamSide == "A" ? teamBPlayers : teamAPlayers
-    }
-
-    private var stepTitle: String {
-        ["選擇 A 隊", "選擇 B 隊", "設定發球"][step]
-    }
+    private var teamAPlayers: [Player] { [teamAPlayer1, teamAPlayer2].compactMap { $0 } }
+    private var teamBPlayers: [Player] { [teamBPlayer1, teamBPlayer2].compactMap { $0 } }
+    private var servingTeamPlayers: [Player] { servingTeamSide == "A" ? teamAPlayers : teamBPlayers }
+    private var receivingTeamPlayers: [Player] { servingTeamSide == "A" ? teamBPlayers : teamAPlayers }
+    private var stepTitle: String { ["選擇 A 隊", "選擇 B 隊", "設定發球"][step] }
 
     // MARK: Body
     var body: some View {
@@ -60,7 +47,6 @@ struct MatchSetupView: View {
                 case 1: teamSectionView(side: "B")
                 default: serviceSettingSection
                 }
-
                 if let err = validationError {
                     Section {
                         Label(err, systemImage: "exclamationmark.triangle")
@@ -97,12 +83,13 @@ struct MatchSetupView: View {
                 ColorPicker("代表色", selection: colorBinding, supportsOpacity: false)
             }
         }
-
         Section("球員選擇") {
             PlayerPickerRow(label: "球員 1", selection: p1Binding,
-                            players: allPlayers, excluding: [p2Binding.wrappedValue] + opposingPicks)
+                            players: allPlayers,
+                            excluding: [p2Binding.wrappedValue] + opposingPicks)
             PlayerPickerRow(label: "球員 2", selection: p2Binding,
-                            players: allPlayers, excluding: [p1Binding.wrappedValue] + opposingPicks)
+                            players: allPlayers,
+                            excluding: [p1Binding.wrappedValue] + opposingPicks)
         }
     }
 
@@ -120,7 +107,6 @@ struct MatchSetupView: View {
                     receivingPlayer = nil
                 }
             }
-
             Section("發球員（發球方隊員）") {
                 ForEach(servingTeamPlayers) { player in
                     SelectablePlayerRow(
@@ -129,7 +115,6 @@ struct MatchSetupView: View {
                     ) { servingPlayer = player }
                 }
             }
-
             Section("接發球員（對方隊員）") {
                 ForEach(receivingTeamPlayers) { player in
                     SelectablePlayerRow(
@@ -138,7 +123,6 @@ struct MatchSetupView: View {
                     ) { receivingPlayer = player }
                 }
             }
-
             Section {
                 Text("選擇發球方、發球員及接發球員後即可開始比賽。")
                     .font(.caption)
@@ -173,9 +157,7 @@ struct MatchSetupView: View {
         }
     }
 
-    private var canFinish: Bool {
-        servingPlayer != nil && receivingPlayer != nil
-    }
+    private var canFinish: Bool { servingPlayer != nil && receivingPlayer != nil }
 
     // MARK: Validation
     @discardableResult
@@ -184,21 +166,17 @@ struct MatchSetupView: View {
         switch step {
         case 0:
             guard teamAPlayer1 != nil, teamAPlayer2 != nil else {
-                validationError = "請為 A 隊選擇兩位球員"
-                return false
+                validationError = "請為 A 隊選擇兩位球員"; return false
             }
             guard teamAShort.trimmingCharacters(in: .whitespaces).count >= 1 else {
-                validationError = "請輸入 A 隊縮寫"
-                return false
+                validationError = "請輸入 A 隊縮寫"; return false
             }
         case 1:
             guard teamBPlayer1 != nil, teamBPlayer2 != nil else {
-                validationError = "請為 B 隊選擇兩位球員"
-                return false
+                validationError = "請為 B 隊選擇兩位球員"; return false
             }
             guard teamBShort.trimmingCharacters(in: .whitespaces).count >= 1 else {
-                validationError = "請輸入 B 隊縮寫"
-                return false
+                validationError = "請輸入 B 隊縮寫"; return false
             }
         default:
             break
@@ -237,7 +215,6 @@ struct MatchSetupView: View {
 }
 
 // MARK: - PlayerPickerRow
-/// 下拉式球員選擇列，自動排除已選球員。
 private struct PlayerPickerRow: View {
     let label: String
     @Binding var selection: Player?
@@ -279,17 +256,5 @@ private struct SelectablePlayerRow: View {
             }
         }
         .contentShape(Rectangle())
-    }
-}
-
-// MARK: - Color hex helper
-extension Color {
-    /// 轉換為 6 位 hex 字串，例如 "#FF3B30"。
-    func toHex() -> String? {
-        let ui = UIColor(self)
-        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-        guard ui.getRed(&r, green: &g, blue: &b, alpha: &a) else { return nil }
-        return String(format: "#%02X%02X%02X",
-                      Int(r * 255), Int(g * 255), Int(b * 255))
     }
 }
